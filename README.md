@@ -492,3 +492,84 @@ alex=#
 
 #### -Evita ataques DoS por SYN Flood.
 #### -Evita que realicen escaneos de puertos a Odin
+
+
+## Reglas
+
+```
+root@odin:~# nft list ruleset
+table inet filter {
+	chain input {
+		type filter hook input priority filter; policy drop;
+		ip saddr 172.29.0.0/16 tcp dport 22 ct state established,new counter packets 10244 bytes 705699 accept
+		ip saddr 172.22.0.0/16 tcp dport 22 ct state established,new counter packets 18738 bytes 1130732 accept
+		ip saddr 192.168.0.0/24 tcp sport 22 ct state established counter packets 5015 bytes 659957 accept
+		ip saddr 172.16.0.0/16 tcp sport 22 ct state established counter packets 1595 bytes 219134 accept
+		counter packets 34915 bytes 2097700
+		iifname "ens3" tcp dport 22 ct state established,new counter packets 0 bytes 0 accept
+		iifname "lo" counter packets 34726 bytes 2084000 accept
+		ip saddr 172.16.0.0/16 icmp type echo-request counter packets 9 bytes 756 accept
+		icmp type echo-reply counter packets 12 bytes 1008 accept
+		ip saddr 192.168.0.0/24 icmp type echo-request counter packets 7 bytes 588 drop
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+		counter packets 83892 bytes 5839416
+		ip saddr 172.16.0.200 ip daddr 192.168.0.0/24 icmp type echo-request counter packets 4 bytes 336 accept
+		ip daddr 172.16.0.200 ip saddr 192.168.0.0/24 icmp type echo-reply counter packets 4 bytes 336 accept
+		ip saddr 172.16.0.200 ip daddr 192.168.0.0/24 tcp dport 22 ct state established,new counter packets 97 bytes 8685 accept
+		ip daddr 172.16.0.200 ip saddr 192.168.0.0/24 tcp sport 22 ct state established counter packets 64 bytes 8777 accept
+		ip saddr 192.168.0.0/24 ip daddr 172.16.0.200 tcp dport 22 ct state established,new counter packets 98 bytes 13695 accept
+		ip saddr 172.16.0.200 ip daddr 192.168.0.0/24 tcp sport 22 ct state established counter packets 76 bytes 12771 accept
+		iifname "ens8" oifname "ens3" icmp type echo-request counter packets 4 bytes 336 accept
+		iifname "ens3" oifname "ens8" icmp type echo-reply counter packets 4 bytes 336 accept
+		iifname "br-intra" oifname "ens3" icmp type echo-request counter packets 8 bytes 672 accept
+		iifname "ens3" oifname "br-intra" icmp type echo-reply counter packets 8 bytes 672 accept
+		iifname "br-intra" oifname "ens3" tcp dport { 80, 443 } ct state established,new counter packets 14 bytes 871 accept
+		iifname "ens3" oifname "br-intra" tcp sport { 80, 443 } ct state established counter packets 4 bytes 602 accept
+		iifname "ens8" oifname "ens3" tcp dport { 80, 443 } ct state established,new counter packets 6 bytes 391 accept
+		iifname "ens3" oifname "ens8" tcp sport { 80, 443 } ct state established counter packets 4 bytes 602 accept
+		iifname "ens3" oifname "ens8" tcp dport { 80, 443 } ct state established,new counter packets 18 bytes 1701 accept
+		iifname "ens8" oifname "ens3" tcp sport { 80, 443 } ct state established counter packets 16 bytes 2371 accept
+		iifname "ens3" oifname "ens8" tcp dport 21 ct state established,new counter packets 11 bytes 610 accept
+		iifname "ens8" oifname "ens3" tcp sport 21 ct state established counter packets 9 bytes 572 accept
+		iifname "br-intra" oifname "ens8" tcp dport { 80, 443 } ct state established,new counter packets 6 bytes 396 accept
+		iifname "ens8" oifname "br-intra" tcp sport { 80, 443 } ct state established counter packets 4 bytes 488 accept
+		iifname "br-intra" oifname "ens8" tcp dport 21 ct state established,new counter packets 12 bytes 657 accept
+		iifname "ens8" oifname "br-intra" tcp sport 21 ct state established counter packets 10 bytes 662 accept
+		iifname "br-intra" oifname "ens8" tcp dport 25 ct state established,new counter packets 9 bytes 486 accept
+		iifname "ens8" oifname "br-intra" tcp sport 25 ct state established counter packets 6 bytes 451 accept
+		ip saddr 172.16.0.0/16 ip daddr 192.168.0.0/24 tcp dport 5432 ct state established,new counter packets 33 bytes 3731 accept
+		ip saddr 192.168.0.0/24 ip daddr 172.16.0.0/16 tcp sport 5432 ct state established counter packets 24 bytes 5405 accept
+	}
+
+	chain output {
+		type filter hook output priority filter; policy drop;
+		ip daddr 172.29.0.0/16 tcp sport 22 ct state established counter packets 8182 bytes 1379426 accept
+		ip daddr 172.22.0.0/16 tcp sport 22 ct state established counter packets 16678 bytes 2335908 accept
+		ip daddr 192.168.0.0/24 tcp dport 22 ct state established,new counter packets 7670 bytes 608796 accept
+		ip daddr 172.16.0.0/16 tcp dport 22 ct state established,new counter packets 1982 bytes 163532 accept
+		counter packets 47687 bytes 2961362
+		oifname "ens3" tcp sport 22 ct state established counter packets 0 bytes 0 accept
+		oifname "lo" counter packets 34726 bytes 2084000 accept
+		ip daddr 172.16.0.0/16 icmp type echo-reply counter packets 9 bytes 756 accept
+		icmp type echo-request counter packets 12 bytes 1008 accept
+		ip daddr 192.168.0.0/24 icmp type echo-reply counter packets 0 bytes 0 drop
+	}
+}
+table inet nat {
+	chain prerouting {
+		type nat hook prerouting priority filter; policy accept;
+		iifname "ens3" tcp dport 2222 counter packets 2 bytes 120 dnat ip to 10.0.200.217:22
+		iifname "ens3" tcp dport 80 counter packets 6 bytes 360 dnat ip to 172.16.0.200
+		iifname "ens3" tcp dport 21 counter packets 1 bytes 60 dnat ip to 172.16.0.200
+	}
+
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		ip saddr 172.16.0.0/16 oifname "ens3" counter packets 2 bytes 144 masquerade
+		ip saddr 192.168.0.0/24 oifname "ens3" counter packets 5 bytes 348 masquerade
+	}
+}
+```
